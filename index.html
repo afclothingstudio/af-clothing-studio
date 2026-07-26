@@ -82,6 +82,12 @@
   .section-head p{max-width:320px; font-size:14px; color:var(--muted);}
 
   .grid-products{display:grid; grid-template-columns:repeat(3, 1fr); gap:1px; background:var(--line);}
+  .skeleton-card{background:var(--ink); padding:0;}
+  .skeleton-visual{aspect-ratio:1; background:linear-gradient(90deg, var(--panel) 25%, var(--line) 37%, var(--panel) 63%); background-size:400% 100%; animation:skeleton-shine 1.4s ease infinite;}
+  .skeleton-info{padding:16px;}
+  .skeleton-line{height:12px; background:var(--panel); margin-bottom:10px; border-radius:2px; animation:skeleton-shine 1.4s ease infinite; background:linear-gradient(90deg, var(--panel) 25%, var(--line) 37%, var(--panel) 63%); background-size:400% 100%;}
+  .skeleton-line.short{width:60%;}
+  @keyframes skeleton-shine{0%{background-position:100% 50%;} 100%{background-position:0 50%;}}
   .product-card{background:var(--ink); display:flex; flex-direction:column;}
   .product-visual{aspect-ratio:4/5; overflow:hidden; position:relative; background:var(--panel);}
   .product-visual img{width:100%; height:100%; object-fit:cover; transition:transform .5s ease;}
@@ -130,6 +136,8 @@
   .cart-badge{position:absolute; top:-8px; right:-8px; background:var(--gold); color:var(--ink); font-size:10px; font-weight:700; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center;}
   .product-info .add-cart-btn{display:block; width:100%; margin-top:10px; text-align:center; background:var(--gold); color:var(--ink); border:none; padding:10px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; cursor:pointer; transition:.2s; font-family:'Inter',sans-serif;}
   .product-info .add-cart-btn:hover{background:var(--gold-deep);}
+  .product-info .size-select{width:100%; margin-top:10px; padding:9px 10px; background:var(--ink); border:1px solid var(--line); color:var(--white); font-family:'Space Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.03em; cursor:pointer;}
+  .product-info .size-select:focus{outline:none; border-color:var(--gold);}
   .cart-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99; opacity:0; pointer-events:none; transition:.3s;}
   .cart-overlay.open{opacity:1; pointer-events:auto;}
   .cart-drawer{position:fixed; top:0; right:-380px; width:360px; max-width:90vw; height:100%; background:var(--panel); border-left:1px solid var(--line); z-index:100; transition:right .3s ease; display:flex; flex-direction:column; padding:24px; box-sizing:border-box;}
@@ -210,7 +218,7 @@
 
 
 
-<div id="productsLoading" style="font-family:'Space Mono',monospace; color:var(--muted); padding:20px 0; grid-column:1/-1;">Loading products…</div></div>
+<div id="productsLoading"></div></div>
 </div>
 </section>
 <section class="section" id="story">
@@ -282,25 +290,26 @@
   const CART_KEY = 'swa_cart';
   function getCart(){ try{ return JSON.parse(localStorage.getItem(CART_KEY)) || []; }catch(e){ return []; } }
   function saveCart(c){ localStorage.setItem(CART_KEY, JSON.stringify(c)); }
-  function addToCart(name, price){
+  function addToCart(name, price, size){
+    size = size || 'M';
     const cart = getCart();
-    const existing = cart.find(i => i.name === name);
-    if(existing){ existing.qty += 1; } else { cart.push({name:name, price:price, qty:1}); }
+    const existing = cart.find(i => i.name === name && i.size === size);
+    if(existing){ existing.qty += 1; } else { cart.push({name:name, price:price, size:size, qty:1}); }
     saveCart(cart);
     renderCart();
     openCart();
   }
-  function removeFromCart(name){
-    const cart = getCart().filter(i => i.name !== name);
+  function removeFromCart(name, size){
+    const cart = getCart().filter(i => !(i.name === name && i.size === size));
     saveCart(cart);
     renderCart();
   }
-  function changeQty(name, delta){
+  function changeQty(name, size, delta){
     let cart = getCart();
-    const item = cart.find(i=>i.name===name);
+    const item = cart.find(i=>i.name===name && i.size===size);
     if(item){
       item.qty += delta;
-      if(item.qty <= 0){ cart = cart.filter(i=>i.name!==name); }
+      if(item.qty <= 0){ cart = cart.filter(i=>!(i.name===name && i.size===size)); }
     }
     saveCart(cart);
     renderCart();
@@ -317,13 +326,13 @@
       list.innerHTML = cart.map(function(i){
         return '<div class="cart-row">' +
           '<div>' +
-            '<div class="cart-row-name">' + i.name + '</div>' +
+            '<div class="cart-row-name">' + i.name + ' <span style="color:var(--gold-deep); font-family:\'Space Mono\',monospace; font-size:11px;">(' + i.size + ')</span></div>' +
             '<div class="cart-row-price">₹' + i.price + ' x ' + i.qty + '</div>' +
           '</div>' +
           '<div class="cart-row-actions">' +
-            '<button onclick="changeQty(\'' + i.name + '\', -1)">−</button>' +
-            '<button onclick="changeQty(\'' + i.name + '\', 1)">+</button>' +
-            '<button onclick="removeFromCart(\'' + i.name + '\')">×</button>' +
+            '<button onclick="changeQty(\'' + i.name + '\', \'' + i.size + '\', -1)">−</button>' +
+            '<button onclick="changeQty(\'' + i.name + '\', \'' + i.size + '\', 1)">+</button>' +
+            '<button onclick="removeFromCart(\'' + i.name + '\', \'' + i.size + '\')">×</button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -347,7 +356,7 @@
     if(cart.length === 0){ return; }
     let msg = "Hi! I would like to order:%0A";
     cart.forEach(function(i){
-      msg += "- " + i.name + " x" + i.qty + " (₹" + i.price + " each)%0A";
+      msg += "- " + i.name + " (Size: " + i.size + ") x" + i.qty + " (₹" + i.price + " each)%0A";
     });
     msg += "Total: ₹" + cartTotal();
     window.open("https://wa.me/919696436384?text=" + msg, "_blank");
@@ -356,7 +365,10 @@
   document.getElementById('grid-products').addEventListener('click', function(e){
     const btn = e.target.closest('.add-cart-btn');
     if(!btn) return;
-    addToCart(btn.dataset.name, parseFloat(btn.dataset.price));
+    const card = btn.closest('.product-card');
+    const sizeSelect = card ? card.querySelector('.size-select') : null;
+    const size = sizeSelect ? sizeSelect.value : 'M';
+    addToCart(btn.dataset.name, parseFloat(btn.dataset.price), size);
   });
   renderCart();
 </script>
@@ -367,38 +379,94 @@
   const SUPABASE_ANON_KEY = "sb_publishable_uiopK4spnCdqyHGk9e5UKw_YOGVGBBr";
   const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  async function loadShopProducts(){
+  const PRODUCTS_CACHE_KEY = 'swa_products_cache_v1';
+
+  function skeletonCardHTML(){
+    return '<div class="product-card skeleton-card">' +
+      '<div class="skeleton-visual"></div>' +
+      '<div class="skeleton-info">' +
+        '<div class="skeleton-line"></div>' +
+        '<div class="skeleton-line short"></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function showSkeletons(count){
     const grid = document.getElementById('grid-products');
-    const loadingEl = document.getElementById('productsLoading');
+    let html = '';
+    for(let i=0; i<count; i++){ html += skeletonCardHTML(); }
+    grid.insertAdjacentHTML('beforeend', html);
+  }
+
+  function clearSkeletons(){
+    document.querySelectorAll('.skeleton-card').forEach(function(el){ el.remove(); });
+  }
+
+  function buildProductCard(p){
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.innerHTML =
+      '<div class="product-visual">' +
+        '<div class="tagline">NEW</div>' +
+        '<img src="' + p.image_data + '" alt="" loading="lazy">' +
+      '</div>' +
+      '<div class="product-info">' +
+        '<div class="pname"></div>' +
+        '<div class="pmeta"><span></span><span class="price">\u20b9' + p.price + '</span></div>' +
+        '<select class="size-select">' +
+          '<option value="S">Size: S</option>' +
+          '<option value="M" selected>Size: M</option>' +
+          '<option value="L">Size: L</option>' +
+          '<option value="XL">Size: XL</option>' +
+          '<option value="XXL">Size: XXL</option>' +
+        '</select>' +
+        '<button class="add-cart-btn" data-price="' + p.price + '">Add to Cart</button>' +
+        '<a href="https://wa.me/919696436384" target="_blank" rel="noopener" class="order-link">Order via WhatsApp</a>' +
+      '</div>';
+    card.querySelector('img').alt = p.name;
+    card.querySelector('.pname').textContent = p.name;
+    card.querySelector('.pmeta span').textContent = p.meta || '';
+    card.querySelector('.add-cart-btn').dataset.name = p.name;
+    return card;
+  }
+
+  function renderProducts(data){
+    const grid = document.getElementById('grid-products');
+    grid.querySelectorAll('.product-card:not(.skeleton-card)').forEach(function(el){ el.remove(); });
+    clearSkeletons();
+    data.forEach(function(p){ grid.appendChild(buildProductCard(p)); });
+  }
+
+  async function loadShopProducts(){
+    // 1. Instantly render from cache if we have it (near-zero perceived load time)
+    let cached = null;
+    try{ cached = JSON.parse(localStorage.getItem(PRODUCTS_CACHE_KEY)); }catch(e){}
+    if(cached && cached.length){
+      renderProducts(cached);
+    } else {
+      showSkeletons(6);
+    }
+
+    // 2. Fetch the latest from the database in the background and refresh
     const { data, error } = await sbClient.from('products').select('*').order('sort_order', { ascending: true });
 
-    if(error || !data || data.length === 0){
-      if(loadingEl){ loadingEl.textContent = error ? 'Could not load products.' : 'No products yet.'; }
+    if(error){
+      if(!cached || !cached.length){
+        clearSkeletons();
+        document.getElementById('productsLoading').textContent = 'Could not load products.';
+      }
+      return;
+    }
+    if(!data || data.length === 0){
+      if(!cached || !cached.length){
+        clearSkeletons();
+        document.getElementById('productsLoading').textContent = 'No products yet.';
+      }
       return;
     }
 
-    if(loadingEl){ loadingEl.remove(); }
-
-    data.forEach(function(p){
-      const card = document.createElement('div');
-      card.className = 'product-card';
-      card.innerHTML =
-        '<div class="product-visual">' +
-          '<div class="tagline">NEW</div>' +
-          '<img src="' + p.image_data + '" alt="">' +
-        '</div>' +
-        '<div class="product-info">' +
-          '<div class="pname"></div>' +
-          '<div class="pmeta"><span></span><span class="price">\u20b9' + p.price + '</span></div>' +
-          '<button class="add-cart-btn" data-price="' + p.price + '">Add to Cart</button>' +
-          '<a href="https://wa.me/919696436384" target="_blank" rel="noopener" class="order-link">Order via WhatsApp</a>' +
-        '</div>';
-      card.querySelector('img').alt = p.name;
-      card.querySelector('.pname').textContent = p.name;
-      card.querySelector('.pmeta span').textContent = p.meta || '';
-      card.querySelector('.add-cart-btn').dataset.name = p.name;
-      grid.appendChild(card);
-    });
+    localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(data));
+    renderProducts(data);
   }
 
   loadShopProducts();
