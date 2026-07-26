@@ -405,6 +405,10 @@
   function buildProductCard(p){
     const card = document.createElement('div');
     card.className = 'product-card';
+    const sizesArr = (p.sizes || 'S,M,L,XL,XXL').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+    const sizeOptions = sizesArr.map(function(s, idx){
+      return '<option value="' + s + '"' + (idx === 0 ? ' selected' : '') + '>Size: ' + s + '</option>';
+    }).join('');
     card.innerHTML =
       '<div class="product-visual">' +
         '<div class="tagline">NEW</div>' +
@@ -413,13 +417,7 @@
       '<div class="product-info">' +
         '<div class="pname"></div>' +
         '<div class="pmeta"><span></span><span class="price">\u20b9' + p.price + '</span></div>' +
-        '<select class="size-select">' +
-          '<option value="S">Size: S</option>' +
-          '<option value="M" selected>Size: M</option>' +
-          '<option value="L">Size: L</option>' +
-          '<option value="XL">Size: XL</option>' +
-          '<option value="XXL">Size: XXL</option>' +
-        '</select>' +
+        '<select class="size-select">' + sizeOptions + '</select>' +
         '<button class="add-cart-btn" data-price="' + p.price + '">Add to Cart</button>' +
         '<a href="https://wa.me/919696436384" target="_blank" rel="noopener" class="order-link">Order via WhatsApp</a>' +
       '</div>';
